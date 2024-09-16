@@ -18,7 +18,12 @@ from utils import (
 
 def get_bookmark_list(page_id, bookId):
     """获取我的划线"""
-    filter = {"property": "书籍", "relation": {"contains": page_id}}
+    filter = {
+        "and": [
+            {"property": "书籍", "relation": {"contains": page_id}},
+            {"property": "blockId", "rich_text": {"is_not_empty": True}},
+        ]
+    }
     results = notion_helper.query_all_by_book(
         notion_helper.bookmark_database_id, filter
     )
@@ -41,7 +46,12 @@ def get_bookmark_list(page_id, bookId):
 
 def get_review_list(page_id,bookId):
     """获取笔记"""
-    filter = {"property": "书籍", "relation": {"contains": page_id}}
+    filter = {
+        "and": [
+            {"property": "书籍", "relation": {"contains": page_id}},
+            {"property": "blockId", "rich_text": {"is_not_empty": True}},
+        ]
+    }
     results = notion_helper.query_all_by_book(notion_helper.review_database_id, filter)
     dict1 = {
         get_rich_text_from_result(x, "reviewId"): get_rich_text_from_result(
@@ -164,6 +174,7 @@ def sort_notes(page_id, chapter, bookmark_list):
 def append_blocks(id, contents):
     print(f"笔记数{len(contents)}")
     before_block_id = ""
+    print(f"content = {contents}")
     block_children = notion_helper.get_block_children(id)
     if len(block_children) > 0 and block_children[0].get("type") == "table_of_contents":
         before_block_id = block_children[0].get("id")
@@ -195,8 +206,10 @@ def append_blocks(id, contents):
         else:
             blocks.append(content_to_block(content))
             sub_contents.append(content)
-
+    
     if len(blocks) > 0:
+        print(f"blocks = {blocks}")
+        print(f"before_block_id = {before_block_id}")
         l.extend(append_blocks_to_notion(id, blocks, before_block_id, sub_contents))
     for index, value in enumerate(l):
         print(f"正在插入第{index+1}条笔记，共{len(l)}条")
@@ -211,14 +224,14 @@ def append_blocks(id, contents):
 def content_to_block(content):
     if "bookmarkId" in content:
         return get_callout(
-            content.get("markText"),
+            content.get("markText",""),
             content.get("style"),
             content.get("colorStyle"),
             content.get("reviewId"),
         )
     elif "reviewId" in content:
         return get_callout(
-            content.get("content"),
+            content.get("content",""),
             content.get("style"),
             content.get("colorStyle"),
             content.get("reviewId"),
@@ -247,7 +260,6 @@ def append_blocks_to_notion(id, blocks, after, contents):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     options = parser.parse_args()
-    weread_cookie = os.getenv("WEREAD_COOKIE")
     branch = os.getenv("REF").split("/")[-1]
     repository =  os.getenv("REPOSITORY")
     weread_api = WeReadApi()
@@ -265,7 +277,7 @@ if __name__ == "__main__":
             if sort == notion_books.get(bookId).get("Sort"):
                 continue
             pageId = notion_books.get(bookId).get("pageId")
-            print(f"正在同步《{title}》,一共{len(books)}本，当前是第{index+1}本。{pageId}")
+            print(f"正在同步《{title}》,一共{len(books)}本，当前是第{index+1}本。")
             chapter = weread_api.get_chapter_info(bookId)
             bookmark_list = get_bookmark_list(pageId, bookId)
             reviews = get_review_list(pageId,bookId)
